@@ -459,14 +459,20 @@ async function loadState(){
   }
 }
 
-function todayStr(){
-  // Asia/Taipei date, matching backend's daily boundary
-  const now = new Date();
-  const tpe = new Date(now.toLocaleString("en-US",{timeZone:"Asia/Taipei"}));
+function dateKeyTaipei(d){
+  // Asia/Taipei y-m-d key, matching backend's daily boundary.
+  // Accepts a Date, or anything Date() can parse (the backend's record
+  // timestamps aren't always strict ISO strings, so always go through
+  // `new Date(...)` rather than string-slicing).
+  const dateObj = d instanceof Date ? d : new Date(d);
+  const tpe = new Date(dateObj.toLocaleString("en-US",{timeZone:"Asia/Taipei"}));
   const y = tpe.getFullYear();
   const m = String(tpe.getMonth()+1).padStart(2,"0");
-  const d = String(tpe.getDate()).padStart(2,"0");
-  return `${y}-${m}-${d}`;
+  const day = String(tpe.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function todayStr(){
+  return dateKeyTaipei(new Date());
 }
 
 function renderTabs(){
@@ -617,7 +623,7 @@ function renderModal(){
   const categories = STATE.categories || [];
   const today = todayStr();
   const records = (STATE.records || []).filter(r =>
-    r.className === currentClass && Number(r.seat) === Number(seat) && String(r.time).slice(0,10) === today
+    r.className === currentClass && Number(r.seat) === Number(seat) && dateKeyTaipei(r.time) === today
   ).sort((a,b) => new Date(b.time) - new Date(a.time));
 
   let html = `<div class="modal-head">
