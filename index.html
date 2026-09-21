@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五年級的社會兵團</title>
+<style>
+  :root{
+    --bg:#f4f1e8;
+    --card:#ffffff;
+    --ink:#33302a;
+    --muted:#8a8478;
+    --accent:#e8632c;
+    --accent-dark:#c74f1f;
+    --good:#4c8c6b;
+    --bad:#c1443c;
+    --line:#e6e0d3;
+    --gold:#e2b33c;
+    --silver:#b8bcc4;
+    --bronze:#c98a4f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding-bottom:60px;
+  }
+  header{
+    padding:20px 16px 10px;
+    text-align:center;
+  }
+  header h1{
+    margin:0 0 4px;
+    font-size:22px;
+    letter-spacing:1px;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .tabs{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    flex-wrap:wrap;
+    padding:14px 16px 4px;
+  }
+  .tab-btn{
+    border:2px solid var(--line);
+    background:var(--card);
+    border-radius:999px;
+    padding:8px 18px;
+    font-size:15px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .tab-btn.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  main{
+    max-width:920px;
+    margin:0 auto;
+    padding:12px 16px;
+  }
+  .era-card{
+    position:relative;
+    border-radius:18px;
+    overflow:hidden;
+    color:#fff;
+    min-height:180px;
+    display:flex;
+    align-items:flex-end;
+    box-shadow:0 6px 18px rgba(0,0,0,.15);
+    margin-bottom:16px;
+    background-size:cover;
+    background-position:center;
+  }
+  .era-card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(to top, rgba(20,15,10,.82) 0%, rgba(20,15,10,.35) 55%, rgba(20,15,10,.05) 100%);
+  }
+  .era-card .era-inner{
+    position:relative;
+    width:100%;
+    padding:16px 18px;
+  }
+  .era-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+  }
+  .era-level-badge{
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.4);
+    backdrop-filter:blur(4px);
+    padding:4px 12px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:700;
+  }
+  .era-total{
+    font-size:13px;
+    opacity:.9;
+  }
+  .era-name{
+    font-size:24px;
+    font-weight:800;
+    margin:10px 0 6px;
+    text-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  .era-progress-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+  }
+  .era-progress-bar{
+    flex:1;
+    height:10px;
+    background:rgba(255,255,255,.25);
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .era-progress-fill{
+    height:100%;
+    background:linear-gradient(90deg,#ffd76a,#e8632c);
+    border-radius:999px;
+    transition:width .4s;
+  }
+  .era-next{
+    opacity:.85;
+    white-space:nowrap;
+  }
+  .era-maxed{
+    font-size:12px;
+    background:var(--gold);
+    color:#4a3400;
+    padding:2px 10px;
+    border-radius:999px;
+    font-weight:700;
+    display:inline-block;
+    margin-top:4px;
+  }
+
+  .section-title{
+    font-size:15px;
+    font-weight:700;
+    margin:18px 0 8px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .bonus-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:6px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .bonus-btn{
+    flex:0 0 auto;
+    border:none;
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:13px;
+    font-weight:700;
+    color:#fff;
+    cursor:pointer;
+    white-space:nowrap;
+    box-shadow:0 2px 5px rgba(0,0,0,.12);
+  }
+  .bonus-btn.good{background:var(--good);}
+  .bonus-btn.bad{background:var(--bad);}
+
+  .toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin:18px 0 8px;
+  }
+  .sort-toggle{
+    display:flex;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:999px;
+    overflow:hidden;
+    font-size:12px;
+  }
+  .sort-toggle button{
+    border:none;
+    background:transparent;
+    padding:6px 12px;
+    cursor:pointer;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .sort-toggle button.active{
+    background:var(--accent);
+    color:#fff;
+  }
+
+  .student-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:10px;
+  }
+  .student-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px;
+    cursor:pointer;
+    transition:transform .1s;
+    position:relative;
+  }
+  .student-card:active{transform:scale(.97);}
+  .student-card .medal{
+    position:absolute;
+    top:8px;
+    right:8px;
+    font-size:16px;
+  }
+  .student-card .seat{
+    font-size:11px;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .student-card .name{
+    font-size:15px;
+    font-weight:700;
+    margin:2px 0 8px;
+  }
+  .student-card .score{
+    font-size:26px;
+    font-weight:800;
+    color:var(--accent-dark);
+  }
+  .student-card .score-label{
+    font-size:11px;
+    color:var(--muted);
+    margin-left:2px;
+  }
+
+  .modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(20,15,10,.5);
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    z-index:50;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    background:var(--bg);
+    width:100%;
+    max-width:520px;
+    max-height:85vh;
+    overflow-y:auto;
+    border-radius:20px 20px 0 0;
+    padding:18px 18px 28px;
+  }
+  @media (min-width:600px){
+    .modal-backdrop{align-items:center;}
+    .modal{border-radius:20px;}
+  }
+  .modal-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .modal-head h2{
+    margin:0;
+    font-size:19px;
+  }
+  .modal-head .close-btn{
+    border:none;
+    background:var(--line);
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    font-size:16px;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .modal-score{
+    text-align:center;
+    margin:6px 0 18px;
+  }
+  .modal-score .num{
+    font-size:44px;
+    font-weight:800;
+    color:var(--accent-dark);
+  }
+  .cat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .cat-btn{
+    border:none;
+    border-radius:12px;
+    padding:12px 10px;
+    font-size:14px;
+    font-weight:700;
+    color:#fff;
+    cursor:pointer;
+    text-align:left;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .cat-btn.good{background:var(--good);}
+  .cat-btn.bad{background:var(--bad);}
+  .cat-btn .pts{font-size:13px; opacity:.85;}
+
+  .history-list{
+    border-top:1px solid var(--line);
+    padding-top:10px;
+  }
+  .history-list h3{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 8px;
+  }
+  .history-item{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    padding:6px 0;
+    border-bottom:1px dashed var(--line);
+  }
+  .history-item .cat{font-weight:600;}
+  .history-item .pt.good{color:var(--good); font-weight:700;}
+  .history-item .pt.bad{color:var(--bad); font-weight:700;}
+  .history-empty{
+    font-size:13px;
+    color:var(--muted);
+    padding:8px 0;
+  }
+
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:24px;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--ink);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:999px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:all .25s;
+    z-index:60;
+    white-space:nowrap;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+
+  .loading, .empty{
+    text-align:center;
+    color:var(--muted);
+    padding:40px 0;
+    font-size:14px;
+  }
+
+  footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:11px;
+    padding:20px 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ 五年級的社會兵團</h1>
+  <p>班級積分系統・台灣時代升級之旅</p>
+</header>
+
+<div class="tabs" id="classTabs"></div>
+
+<main>
+  <div id="content" class="loading">載入中…</div>
+</main>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer>五年級的社會兵團 · 資料每次操作即時更新</footer>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzXXRYVb8Xwm9kY2HUpykGnMktss2MjDom-pigwFzdtPY3tvbvXu09xPl0-XCwN0CniyQ/exec";
+const CLASSES = ["506","507","508","509","510"];
+
+const ERAS = [
+  {name:"史前時代"},
+  {name:"石器時代"},
+  {name:"農業時代"},
+  {name:"青銅時代"},
+  {name:"鐵器時代"},
+  {name:"古文明時代"},
+  {name:"城邦時代"},
+  {name:"帝國時代"},
+  {name:"中世紀"},
+  {name:"大航海時代"},
+  {name:"文藝復興"},
+  {name:"工業革命"},
+  {name:"蒸汽時代"},
+  {name:"電力時代"},
+  {name:"太空時代"},
+  {name:"電腦時代"},
+  {name:"網路時代"},
+  {name:"智慧型手機時代"},
+  {name:"機器人時代"},
+  {name:"AI 世代"}
+];
+function eraImage(level){
+  const n = String(level).padStart(2,"0");
+  return "images/" + n + ".jpg";
+}
+function eraName(level){
+  return ERAS[Math.min(Math.max(level,1),20) - 1].name;
+}
+
+let STATE = null;
+let currentClass = CLASSES[0];
+let sortMode = "seat"; // or "score"
+let modalStudent = null;
+
+async function loadState(){
+  try{
+    const res = await fetch(API_URL + "?action=state");
+    STATE = await res.json();
+    render();
+  }catch(err){
+    document.getElementById("content").innerHTML =
+      '<div class="empty">⚠️ 無法連線到後端，請檢查網路後重新整理。</div>';
+    console.error(err);
+  }
+}
+
+function todayStr(){
+  // Asia/Taipei date, matching backend's daily boundary
+  const now = new Date();
+  const tpe = new Date(now.toLocaleString("en-US",{timeZone:"Asia/Taipei"}));
+  const y = tpe.getFullYear();
+  const m = String(tpe.getMonth()+1).padStart(2,"0");
+  const d = String(tpe.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+
+function renderTabs(){
+  const wrap = document.getElementById("classTabs");
+  wrap.innerHTML = "";
+  CLASSES.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "tab-btn" + (c === currentClass ? " active" : "");
+    btn.textContent = c + " 班";
+    btn.onclick = () => { currentClass = c; render(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function render(){
+  renderTabs();
+  if(!STATE) return;
+  const content = document.getElementById("content");
+  content.className = "";
+
+  const cl = (STATE.classLevels || []).find(c => c.className === currentClass) ||
+    {total:0, level:1, progress:0, pointsPerLevel:50, maxLevel:20};
+  const students = (STATE.students || []).filter(s => s.className === currentClass);
+  const scoreMap = {};
+  (STATE.scores || []).filter(s => s.className === currentClass).forEach(s => {
+    scoreMap[s.seat] = s.score;
+  });
+  const categories = STATE.categories || [];
+
+  const isMax = cl.level >= cl.maxLevel;
+  const nextName = isMax ? null : eraName(cl.level + 1);
+
+  let html = "";
+
+  html += `<div class="era-card" style="background-image:url('${eraImage(cl.level)}')">
+    <div class="era-inner">
+      <div class="era-top">
+        <div class="era-level-badge">Lv.${cl.level} / ${cl.maxLevel}</div>
+        <div class="era-total">班級累積總分：<strong>${cl.total}</strong> 分</div>
+      </div>
+      <div class="era-name">${eraName(cl.level)}</div>
+      ${ isMax
+        ? `<div class="era-maxed">🏆 已達最高時代！</div>`
+        : `<div class="era-progress-row">
+             <div class="era-progress-bar"><div class="era-progress-fill" style="width:${Math.min(100, cl.progress / cl.pointsPerLevel * 100)}%"></div></div>
+             <div class="era-next">${cl.progress}/${cl.pointsPerLevel} 分 → ${nextName}</div>
+           </div>`
+      }
+    </div>
+  </div>`;
+
+  html += `<div class="section-title">✨ 全班加減分</div>
+  <div class="bonus-row">`;
+  categories.forEach(cat => {
+    const good = cat.points > 0;
+    html += `<button class="bonus-btn ${good?'good':'bad'}" onclick="doBulkAdd('${escapeAttr(cat.name)}', ${cat.points})">
+      ${cat.name} ${good?'+':''}${cat.points}
+    </button>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="toolbar">
+    <div class="section-title" style="margin:0;">🧑‍🎓 個人今日分數（基準 10 分）</div>
+    <div class="sort-toggle">
+      <button class="${sortMode==='seat'?'active':''}" onclick="setSort('seat')">座號</button>
+      <button class="${sortMode==='score'?'active':''}" onclick="setSort('score')">排行</button>
+    </div>
+  </div>`;
+
+  let list = students.map(s => ({...s, score: scoreMap[s.seat] ?? 10}));
+  if(sortMode === "score"){
+    list = list.slice().sort((a,b) => b.score - a.score || a.seat - b.seat);
+  } else {
+    list = list.slice().sort((a,b) => a.seat - b.seat);
+  }
+
+  html += `<div class="student-grid">`;
+  list.forEach((s, i) => {
+    let medal = "";
+    if(sortMode === "score"){
+      if(i===0) medal = "🥇"; else if(i===1) medal = "🥈"; else if(i===2) medal = "🥉";
+    }
+    html += `<div class="student-card" onclick="openStudent(${s.seat}, '${escapeAttr(s.name)}')">
+      ${medal ? `<div class="medal">${medal}</div>` : ""}
+      <div class="seat">座號 ${s.seat}</div>
+      <div class="name">${s.name}</div>
+      <div><span class="score">${s.score}</span><span class="score-label">分</span></div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  if(students.length === 0){
+    html += `<div class="empty">這個班級目前沒有學生名單。</div>`;
+  }
+
+  content.innerHTML = html;
+}
+
+function setSort(mode){
+  sortMode = mode;
+  render();
+}
+
+function escapeAttr(s){
+  return String(s).replace(/'/g, "\\'");
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+async function postAction(body){
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {"Content-Type": "text/plain;charset=utf-8"},
+    body: JSON.stringify(body)
+  });
+  return res.json().catch(() => ({}));
+}
+
+async function doBulkAdd(category, points){
+  showToast(`全班：${category} ${points>0?'+':''}${points} 分…`);
+  await postAction({action:"bulkAdd", className: currentClass, category, points});
+  await loadState();
+  showToast(`✅ 已為 ${currentClass} 班全班加分：${category}`);
+}
+
+function openStudent(seat, name){
+  modalStudent = {seat, name};
+  renderModal();
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function closeModal(){
+  document.getElementById("modalBackdrop").classList.remove("open");
+  modalStudent = null;
+}
+
+function renderModal(){
+  if(!modalStudent) return;
+  const {seat, name} = modalStudent;
+  const scoreEntry = (STATE.scores || []).find(s => s.className === currentClass && s.seat === seat);
+  const score = scoreEntry ? scoreEntry.score : 10;
+  const categories = STATE.categories || [];
+  const today = todayStr();
+  const records = (STATE.records || []).filter(r =>
+    r.className === currentClass && Number(r.seat) === Number(seat) && String(r.time).slice(0,10) === today
+  ).sort((a,b) => new Date(b.time) - new Date(a.time));
+
+  let html = `<div class="modal-head">
+    <h2>${name}（座號 ${seat}）</h2>
+    <button class="close-btn" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-score"><span class="num">${score}</span> 分（今日）</div>
+  <div class="cat-grid">`;
+  categories.forEach(cat => {
+    const good = cat.points > 0;
+    html += `<button class="cat-btn ${good?'good':'bad'}" onclick="doIndividual(${seat}, '${escapeAttr(name)}', '${escapeAttr(cat.name)}', ${cat.points})">
+      <span>${cat.name}</span><span class="pts">${good?'+':''}${cat.points}</span>
+    </button>`;
+  });
+  html += `</div>
+  <div class="history-list">
+    <h3>今日紀錄</h3>`;
+  if(records.length === 0){
+    html += `<div class="history-empty">今天還沒有加減分紀錄。</div>`;
+  } else {
+    records.forEach(r => {
+      const t = new Date(r.time);
+      const hh = String(t.getHours()).padStart(2,"0");
+      const mm = String(t.getMinutes()).padStart(2,"0");
+      const good = r.points > 0;
+      html += `<div class="history-item">
+        <span class="cat">${hh}:${mm} ${r.category}</span>
+        <span class="pt ${good?'good':'bad'}">${good?'+':''}${r.points}</span>
+      </div>`;
+    });
+  }
+  html += `</div>`;
+
+  document.getElementById("modalBody").innerHTML = html;
+}
+
+async function doIndividual(seat, name, category, points){
+  showToast(`${name}：${category} ${points>0?'+':''}${points} 分…`);
+  await postAction({className: currentClass, seat, name, category, points, note:""});
+  await loadState();
+  if(modalStudent && modalStudent.seat === seat){
+    renderModal();
+  }
+  showToast(`✅ ${name} ${category} ${points>0?'+':''}${points} 分`);
+}
+
+document.getElementById("modalBackdrop").addEventListener("click", (e) => {
+  if(e.target.id === "modalBackdrop") closeModal();
+});
+
+loadState();
+setInterval(loadState, 30000);
+</script>
+</body>
+</html>
