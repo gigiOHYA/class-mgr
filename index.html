@@ -20,12 +20,28 @@
     --bronze:#c98a4f;
   }
   *{box-sizing:border-box;}
-  body{
+  html, body{
     margin:0;
     font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
     background:var(--bg);
     color:var(--ink);
     padding-bottom:60px;
+    min-height:100%;
+  }
+  #bgLayer{
+    position:fixed;
+    inset:-60px;
+    z-index:-1;
+    background-size:cover;
+    background-position:center;
+    filter:blur(50px) saturate(1.15);
+    transition:background-image .5s ease;
+  }
+  #bgLayer::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:rgba(244,241,232,.6);
   }
   header{
     padding:20px 16px 10px;
@@ -389,6 +405,8 @@
 </head>
 <body>
 
+<div id="bgLayer"></div>
+
 <header>
   <h1>🛡️ 五年級的社會兵團</h1>
   <p>班級積分系統・台灣時代升級之旅</p>
@@ -487,6 +505,15 @@ function renderTabs(){
   });
 }
 
+function setBackground(level){
+  const bg = document.getElementById("bgLayer");
+  const url = eraImage(level);
+  if(bg.dataset.url !== url){
+    bg.style.backgroundImage = `url('${url}')`;
+    bg.dataset.url = url;
+  }
+}
+
 function render(){
   renderTabs();
   if(!STATE) return;
@@ -495,6 +522,7 @@ function render(){
 
   const cl = (STATE.classLevels || []).find(c => c.className === currentClass) ||
     {total:0, level:1, progress:0, pointsPerLevel:50, maxLevel:20};
+  setBackground(cl.level);
   const students = (STATE.students || []).filter(s => s.className === currentClass);
   const scoreMap = {};
   (STATE.scores || []).filter(s => s.className === currentClass).forEach(s => {
@@ -588,20 +616,78 @@ function showToast(msg){
   showToast._timer = setTimeout(() => t.classList.remove("show"), 1800);
 }
 
-async function postAction(body){
-  const res = await fetch(API_URL, {
+function postAction(body){
+  // Fire-and-let-caller-await; UI itself never blocks on this (see the
+  // optimistic-update functions below) — it only reconciles afterwards.
+  return fetch(API_URL, {
     method: "POST",
     headers: {"Content-Type": "text/plain;charset=utf-8"},
     body: JSON.stringify(body)
-  });
-  return res.json().catch(() => ({}));
+  }).then(res => res.json().catch(() => ({})));
 }
 
-async function doBulkAdd(category, points){
-  showToast(`全班：${category} ${points>0?'+':''}${points} 分…`);
-  await postAction({action:"bulkAdd", className: currentClass, category, points});
-  await loadState();
-  showToast(`✅ 已為 ${currentClass} 班全班加分：${category}`);
+// Mirrors the backend's computeClassLevels formula so the UI can jump to
+// the right level/progress immediately, before the server round-trip
+// confirms it (see class-mgr Apps Script: computeClassLevels).
+function levelFromTotal(total, pointsPerLevel, maxLevel){
+  const clamped = Math.max(total, 0);
+  let levelIndex = Math.floor(clamped / pointsPerLevel);
+  if(levelIndex > maxLevel - 1) levelIndex = maxLevel - 1;
+  let progress = clamped - levelIndex * pointsPerLevel;
+  if(levelIndex >= maxLevel - 1) progress = Math.min(progress, pointsPerLevel);
+  return {level: levelIndex + 1, progress};
+}
+
+function bumpClassTotal(className, deltaPoints){
+  STATE.classLevels = STATE.classLevels || [];
+  let cl = STATE.classLevels.find(c => c.className === className);
+  if(!cl){
+    cl = {className, total:0, level:1, progress:0, pointsPerLevel:50, maxLevel:20};
+    STATE.classLevels.push(cl);
+  }
+  cl.total += deltaPoints;
+  const {level, progress} = levelFromTotal(cl.total, cl.pointsPerLevel, cl.maxLevel);
+  cl.level = level;
+  cl.progress = progress;
+}
+
+function bumpStudentScore(className, seat, deltaPoints){
+  STATE.scores = STATE.scores || [];
+  let s = STATE.scores.find(x => x.className === className && Number(x.seat) === Number(seat));
+  if(!s){
+    s = {className, seat, score: 10};
+    STATE.scores.push(s);
+  }
+  s.score += deltaPoints;
+}
+
+function pushOptimisticRecord(className, seat, name, category, points){
+  STATE.records = STATE.records || [];
+  STATE.records.push({time: new Date().toISOString(), className, seat, name, category, points, note:""});
+}
+
+// Reconcile with the server in the background — never blocks the UI, but
+// keeps things honest in case of concurrent edits from other devices.
+function reconcile(){
+  loadState().catch(() => {});
+}
+
+function doBulkAdd(category, points){
+  const students = (STATE.students || []).filter(s => s.className === currentClass);
+  students.forEach(s => {
+    bumpStudentScore(currentClass, s.seat, points);
+    pushOptimisticRecord(currentClass, s.seat, s.name, category, points);
+  });
+  bumpClassTotal(currentClass, points * students.length);
+  render();
+  showToast(`✅ 全班：${category} ${points>0?'+':''}${points} 分`);
+
+  postAction({action:"bulkAdd", className: currentClass, category, points})
+    .then(reconcile)
+    .catch(() => {
+      showToast("⚠️ 同步失敗，正在重新整理…");
+      reconcile();
+    });
 }
 
 function openStudent(seat, name){
@@ -660,14 +746,22 @@ function renderModal(){
   document.getElementById("modalBody").innerHTML = html;
 }
 
-async function doIndividual(seat, name, category, points){
-  showToast(`${name}：${category} ${points>0?'+':''}${points} 分…`);
-  await postAction({className: currentClass, seat, name, category, points, note:""});
-  await loadState();
+function doIndividual(seat, name, category, points){
+  bumpStudentScore(currentClass, seat, points);
+  pushOptimisticRecord(currentClass, seat, name, category, points);
+  bumpClassTotal(currentClass, points);
+  render();
   if(modalStudent && modalStudent.seat === seat){
     renderModal();
   }
   showToast(`✅ ${name} ${category} ${points>0?'+':''}${points} 分`);
+
+  postAction({className: currentClass, seat, name, category, points, note:""})
+    .then(reconcile)
+    .catch(() => {
+      showToast("⚠️ 同步失敗，正在重新整理…");
+      reconcile();
+    });
 }
 
 document.getElementById("modalBackdrop").addEventListener("click", (e) => {
