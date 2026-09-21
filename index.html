@@ -246,15 +246,24 @@
     right:8px;
     font-size:16px;
   }
-  .student-card .seat{
-    font-size:11px;
-    color:var(--muted);
-    font-weight:600;
+  .student-card .seat-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:32px;
+    height:32px;
+    padding:0 6px;
+    border-radius:16px;
+    background:var(--ink);
+    color:#fff;
+    font-size:15px;
+    font-weight:800;
+    margin-bottom:8px;
   }
   .student-card .name{
     font-size:15px;
     font-weight:700;
-    margin:2px 0 8px;
+    margin:0 0 8px;
   }
   .student-card .score{
     font-size:26px;
@@ -585,7 +594,7 @@ function render(){
     }
     html += `<div class="student-card" onclick="openStudent(${s.seat}, '${escapeAttr(s.name)}')">
       ${medal ? `<div class="medal">${medal}</div>` : ""}
-      <div class="seat">座號 ${s.seat}</div>
+      <div class="seat-badge">${s.seat}</div>
       <div class="name">${s.name}</div>
       <div><span class="score">${s.score}</span><span class="score-label">分</span></div>
     </div>`;
