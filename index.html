@@ -127,6 +127,32 @@
   .era-total{
     font-size:13px;
     opacity:.9;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .add-baseline-btn{
+    font-family:inherit;
+    font-size:12px;
+    font-weight:700;
+    color:#fff;
+    background:rgba(255,255,255,.22);
+    border:1px solid rgba(255,255,255,.5);
+    backdrop-filter:blur(4px);
+    padding:5px 10px;
+    border-radius:999px;
+    cursor:pointer;
+    opacity:1;
+    white-space:nowrap;
+  }
+  .add-baseline-btn:hover{
+    background:rgba(255,255,255,.35);
+  }
+  .add-baseline-btn:disabled{
+    opacity:.5;
+    cursor:default;
   }
   .era-name{
     font-size:24px;
@@ -469,6 +495,7 @@ function eraName(level){
   return ERAS[Math.min(Math.max(level,1),20) - 1].name;
 }
 
+const DAILY_BASELINE = 9;
 let STATE = null;
 let currentClass = CLASSES[0];
 let sortMode = "seat"; // or "score"
@@ -548,7 +575,10 @@ function render(){
     <div class="era-inner">
       <div class="era-top">
         <div class="era-level-badge">Lv.${cl.level} / ${cl.maxLevel}</div>
-        <div class="era-total">班級累積總分：<strong>${cl.total}</strong> 分</div>
+        <div class="era-total">
+          班級累積總分：<strong>${cl.total}</strong> 分
+          <button class="add-baseline-btn" onclick="addClassBaseline()">➕ 加上今日基準分（+${students.length * DAILY_BASELINE}）</button>
+        </div>
       </div>
       <div class="era-name">${eraName(cl.level)}</div>
       ${ isMax
@@ -572,14 +602,14 @@ function render(){
   html += `</div>`;
 
   html += `<div class="toolbar">
-    <div class="section-title" style="margin:0;">🧑‍🎓 個人今日分數（基準 10 分）</div>
+    <div class="section-title" style="margin:0;">🧑‍🎓 個人今日分數（基準 ${DAILY_BASELINE} 分）</div>
     <div class="sort-toggle">
       <button class="${sortMode==='seat'?'active':''}" onclick="setSort('seat')">座號</button>
       <button class="${sortMode==='score'?'active':''}" onclick="setSort('score')">排行</button>
     </div>
   </div>`;
 
-  let list = students.map(s => ({...s, score: scoreMap[s.seat] ?? 10}));
+  let list = students.map(s => ({...s, score: scoreMap[s.seat] ?? DAILY_BASELINE}));
   if(sortMode === "score"){
     list = list.slice().sort((a,b) => b.score - a.score || a.seat - b.seat);
   } else {
@@ -664,7 +694,7 @@ function bumpStudentScore(className, seat, deltaPoints){
   STATE.scores = STATE.scores || [];
   let s = STATE.scores.find(x => x.className === className && Number(x.seat) === Number(seat));
   if(!s){
-    s = {className, seat, score: 10};
+    s = {className, seat, score: DAILY_BASELINE};
     STATE.scores.push(s);
   }
   s.score += deltaPoints;
@@ -699,6 +729,30 @@ function doBulkAdd(category, points){
     });
 }
 
+function addClassBaseline(){
+  const students = (STATE.students || []).filter(s => s.className === currentClass);
+  const total = students.length * DAILY_BASELINE;
+  if(total <= 0) return;
+
+  bumpClassTotal(currentClass, total);
+  render();
+  showToast(`✅ 已加上今日基準分：+${total} 分`);
+
+  postAction({
+    className: currentClass,
+    seat: "",
+    name: "全班",
+    category: "今日基準分",
+    points: total,
+    note: "手動加上今日基準分（不影響個人今日分數）"
+  })
+    .then(reconcile)
+    .catch(() => {
+      showToast("⚠️ 同步失敗，正在重新整理…");
+      reconcile();
+    });
+}
+
 function openStudent(seat, name){
   modalStudent = {seat, name};
   renderModal();
@@ -714,7 +768,7 @@ function renderModal(){
   if(!modalStudent) return;
   const {seat, name} = modalStudent;
   const scoreEntry = (STATE.scores || []).find(s => s.className === currentClass && s.seat === seat);
-  const score = scoreEntry ? scoreEntry.score : 10;
+  const score = scoreEntry ? scoreEntry.score : DAILY_BASELINE;
   const categories = STATE.categories || [];
   const today = todayStr();
   const records = (STATE.records || []).filter(r =>
