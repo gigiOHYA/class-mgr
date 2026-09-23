@@ -431,6 +431,44 @@
     color:#fff;
   }
 
+  .participation-note{
+    font-size:12px;
+    color:var(--muted);
+    margin:-6px 0 10px;
+  }
+  .participation-empty{
+    font-size:13px;
+    color:var(--good);
+    padding:2px 0 18px;
+  }
+  .participation-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(64px,1fr));
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .participation-chip{
+    border:2px solid var(--accent);
+    border-radius:12px;
+    padding:8px 4px;
+    text-align:center;
+    cursor:pointer;
+    background:rgba(232,99,44,.08);
+  }
+  .participation-chip .seat{
+    font-weight:800;
+    font-size:15px;
+    color:var(--accent-dark);
+  }
+  .participation-chip .name{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:2px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
   .history-list{
     border-top:1px solid var(--line);
     padding-top:10px;
@@ -550,6 +588,7 @@ function eraName(level){
 }
 
 const DAILY_BASELINE = 0;
+const PARTICIPATION_CATEGORY = "主動發言";
 let STATE = null;
 let currentClass = CLASSES[0];
 let sortMode = "seat"; // or "score"
@@ -596,6 +635,31 @@ function renderTabs(){
   });
 }
 
+function getRecentLessonDates(className, n){
+  // "一堂課" isn't tracked explicitly — we treat each distinct calendar
+  // day (Asia/Taipei) that has any record for the class as one lesson.
+  const dateSet = new Set();
+  (STATE.records || []).forEach(r => {
+    if(r.className === className) dateSet.add(dateKeyTaipei(r.time));
+  });
+  return Array.from(dateSet).sort((a,b) => b.localeCompare(a)).slice(0, n);
+}
+
+function getNoParticipationSeats(className){
+  const lessonDates = getRecentLessonDates(className, 3);
+  if(lessonDates.length === 0) return {lessonDates, seats: []};
+  const lessonDateSet = new Set(lessonDates);
+  const participated = new Set();
+  (STATE.records || []).forEach(r => {
+    if(r.className === className && r.category === PARTICIPATION_CATEGORY && lessonDateSet.has(dateKeyTaipei(r.time))){
+      participated.add(Number(r.seat));
+    }
+  });
+  const students = (STATE.students || []).filter(s => s.className === className);
+  const seats = students.filter(s => !participated.has(Number(s.seat))).sort((a,b) => a.seat - b.seat);
+  return {lessonDates, seats};
+}
+
 function setBackground(level){
   const bg = document.getElementById("bgLayer");
   const url = eraImage(level);
@@ -612,7 +676,7 @@ function render(){
   content.className = "";
 
   const cl = (STATE.classLevels || []).find(c => c.className === currentClass) ||
-    {total:0, level:1, progress:0, pointsPerLevel:30, maxLevel:20};
+    {total:0, level:1, progress:0, pointsPerLevel:20, maxLevel:20};
   setBackground(cl.level);
   const students = (STATE.students || []).filter(s => s.className === currentClass);
   const scoreMap = {};
@@ -652,6 +716,25 @@ function render(){
     </button>`;
   });
   html += `</div>`;
+
+  const participation = getNoParticipationSeats(currentClass);
+  if(participation.lessonDates.length > 0){
+    const dateLabel = participation.lessonDates.slice().reverse().join('、');
+    html += `<div class="section-title">🙋 近三堂課未舉手發言</div>
+    <div class="participation-note">依最近 ${participation.lessonDates.length} 個上課日統計：${dateLabel}</div>`;
+    if(participation.seats.length === 0){
+      html += `<div class="participation-empty">🎉 大家這幾堂課都有舉手發言！</div>`;
+    } else {
+      html += `<div class="participation-grid">`;
+      participation.seats.forEach(s => {
+        html += `<div class="participation-chip" onclick="openStudent(${s.seat}, '${escapeAttr(s.name)}')">
+          <div class="seat">${s.seat}</div>
+          <div class="name">${s.name}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+  }
 
   html += `<div class="toolbar">
     <div class="section-title" style="margin:0;">🧑‍🎓 個人今日分數（基準 ${DAILY_BASELINE} 分）</div>
@@ -733,7 +816,7 @@ function bumpClassTotal(className, deltaPoints){
   STATE.classLevels = STATE.classLevels || [];
   let cl = STATE.classLevels.find(c => c.className === className);
   if(!cl){
-    cl = {className, total:0, level:1, progress:0, pointsPerLevel:30, maxLevel:20};
+    cl = {className, total:0, level:1, progress:0, pointsPerLevel:20, maxLevel:20};
     STATE.classLevels.push(cl);
   }
   cl.total += deltaPoints;
@@ -908,6 +991,17 @@ function renderModal(){
 }
 
 function doIndividual(seat, name, category, points){
+  if(category === PARTICIPATION_CATEGORY){
+    const today = todayStr();
+    const already = (STATE.records || []).some(r =>
+      r.className === currentClass && Number(r.seat) === Number(seat) &&
+      r.category === PARTICIPATION_CATEGORY && dateKeyTaipei(r.time) === today
+    );
+    if(already){
+      showToast(`🙋 ${name} 今天已經加過「${PARTICIPATION_CATEGORY}」了`);
+      return;
+    }
+  }
   bumpStudentScore(currentClass, seat, points);
   pushOptimisticRecord(currentClass, seat, name, category, points);
   bumpClassTotal(currentClass, points);
