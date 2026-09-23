@@ -720,7 +720,7 @@ function render(){
   const participation = getNoParticipationSeats(currentClass);
   if(participation.lessonDates.length > 0){
     const dateLabel = participation.lessonDates.slice().reverse().join('、');
-    html += `<div class="section-title">🙋 近三堂課未舉手發言</div>
+    html += `<div class="section-title">🙋 待選名單</div>
     <div class="participation-note">依最近 ${participation.lessonDates.length} 個上課日統計：${dateLabel}</div>`;
     if(participation.seats.length === 0){
       html += `<div class="participation-empty">🎉 大家這幾堂課都有舉手發言！</div>`;
