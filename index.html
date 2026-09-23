@@ -351,6 +351,86 @@
   .cat-btn.bad{background:var(--bad);}
   .cat-btn .pts{font-size:13px; opacity:.85;}
 
+  .bulk-hint{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 12px;
+  }
+  .bulk-toolbar{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .bulk-toolbar button{
+    flex:1;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+    border-radius:10px;
+    padding:8px;
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .exclude-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(64px,1fr));
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .exclude-chip{
+    border:2px solid var(--line);
+    border-radius:12px;
+    padding:8px 4px;
+    text-align:center;
+    cursor:pointer;
+    background:var(--card);
+    user-select:none;
+    transition:all .15s;
+  }
+  .exclude-chip .seat{
+    font-weight:800;
+    font-size:15px;
+  }
+  .exclude-chip .name{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:2px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .exclude-chip.excluded{
+    border-color:var(--bad);
+    background:rgba(193,68,60,.08);
+    opacity:.55;
+  }
+  .exclude-chip.excluded .seat{
+    text-decoration:line-through;
+    color:var(--bad);
+  }
+  .bulk-confirm-row{
+    display:flex;
+    gap:10px;
+  }
+  .bulk-confirm-row button{
+    flex:1;
+    border:none;
+    border-radius:12px;
+    padding:13px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .bulk-confirm-row .cancel-btn{
+    background:var(--line);
+    color:var(--ink);
+  }
+  .bulk-confirm-row .apply-btn{
+    background:var(--accent);
+    color:#fff;
+  }
+
   .history-list{
     border-top:1px solid var(--line);
     padding-top:10px;
@@ -469,11 +549,12 @@ function eraName(level){
   return ERAS[Math.min(Math.max(level,1),20) - 1].name;
 }
 
-const DAILY_BASELINE = 9;
+const DAILY_BASELINE = 0;
 let STATE = null;
 let currentClass = CLASSES[0];
 let sortMode = "seat"; // or "score"
 let modalStudent = null;
+let bulkModal = null; // {category, points, excluded: Set<number>}
 
 async function loadState(){
   try{
@@ -531,7 +612,7 @@ function render(){
   content.className = "";
 
   const cl = (STATE.classLevels || []).find(c => c.className === currentClass) ||
-    {total:0, level:1, progress:0, pointsPerLevel:300, maxLevel:20};
+    {total:0, level:1, progress:0, pointsPerLevel:30, maxLevel:20};
   setBackground(cl.level);
   const students = (STATE.students || []).filter(s => s.className === currentClass);
   const scoreMap = {};
@@ -566,7 +647,7 @@ function render(){
   <div class="bonus-row">`;
   categories.forEach(cat => {
     const good = cat.points > 0;
-    html += `<button class="bonus-btn ${good?'good':'bad'}" onclick="doBulkAdd('${escapeAttr(cat.name)}', ${cat.points})">
+    html += `<button class="bonus-btn ${good?'good':'bad'}" onclick="openBulkModal('${escapeAttr(cat.name)}', ${cat.points})">
       ${cat.name} ${good?'+':''}${cat.points}
     </button>`;
   });
@@ -652,7 +733,7 @@ function bumpClassTotal(className, deltaPoints){
   STATE.classLevels = STATE.classLevels || [];
   let cl = STATE.classLevels.find(c => c.className === className);
   if(!cl){
-    cl = {className, total:0, level:1, progress:0, pointsPerLevel:300, maxLevel:20};
+    cl = {className, total:0, level:1, progress:0, pointsPerLevel:30, maxLevel:20};
     STATE.classLevels.push(cl);
   }
   cl.total += deltaPoints;
@@ -682,22 +763,91 @@ function reconcile(){
   loadState().catch(() => {});
 }
 
-function doBulkAdd(category, points){
-  const students = (STATE.students || []).filter(s => s.className === currentClass);
+function doBulkAdd(category, points, excludedSeats){
+  const excluded = excludedSeats || new Set();
+  const students = (STATE.students || []).filter(s => s.className === currentClass && !excluded.has(Number(s.seat)));
   students.forEach(s => {
     bumpStudentScore(currentClass, s.seat, points);
     pushOptimisticRecord(currentClass, s.seat, s.name, category, points);
   });
   bumpClassTotal(currentClass, points * students.length);
   render();
-  showToast(`✅ 全班：${category} ${points>0?'+':''}${points} 分`);
+  const excludeNote = excluded.size > 0 ? `（已排除 ${excluded.size} 人）` : "";
+  showToast(`✅ 全班：${category} ${points>0?'+':''}${points} 分${excludeNote}`);
 
-  postAction({action:"bulkAdd", className: currentClass, category, points})
+  postAction({action:"bulkAdd", className: currentClass, category, points, excludeSeats: Array.from(excluded)})
     .then(reconcile)
     .catch(() => {
       showToast("⚠️ 同步失敗，正在重新整理…");
       reconcile();
     });
+}
+
+function openBulkModal(category, points){
+  bulkModal = {category, points, excluded: new Set()};
+  renderBulkModal();
+  document.getElementById("modalBackdrop").classList.add("open");
+}
+
+function toggleBulkExclude(seat){
+  if(!bulkModal) return;
+  seat = Number(seat);
+  if(bulkModal.excluded.has(seat)) bulkModal.excluded.delete(seat);
+  else bulkModal.excluded.add(seat);
+  renderBulkModal();
+}
+
+function bulkIncludeAll(){
+  if(!bulkModal) return;
+  bulkModal.excluded.clear();
+  renderBulkModal();
+}
+
+function bulkExcludeAll(){
+  if(!bulkModal) return;
+  const students = (STATE.students || []).filter(s => s.className === currentClass);
+  students.forEach(s => bulkModal.excluded.add(Number(s.seat)));
+  renderBulkModal();
+}
+
+function confirmBulkAdd(){
+  if(!bulkModal) return;
+  const {category, points, excluded} = bulkModal;
+  closeModal();
+  doBulkAdd(category, points, excluded);
+}
+
+function renderBulkModal(){
+  if(!bulkModal) return;
+  const {category, points, excluded} = bulkModal;
+  const good = points > 0;
+  const students = (STATE.students || []).filter(s => s.className === currentClass).slice().sort((a,b) => a.seat - b.seat);
+  const includedCount = students.length - excluded.size;
+
+  let html = `<div class="modal-head">
+    <h2>全班加減分：${category} ${good?'+':''}${points}</h2>
+    <button class="close-btn" onclick="closeModal()">✕</button>
+  </div>
+  <div class="bulk-hint">點選座號可排除該同學，不加不減分。目前將套用於 ${includedCount} / ${students.length} 位同學。</div>
+  <div class="bulk-toolbar">
+    <button onclick="bulkIncludeAll()">全部包含</button>
+    <button onclick="bulkExcludeAll()">全部排除</button>
+  </div>
+  <div class="exclude-grid">`;
+  students.forEach(s => {
+    const isExcluded = excluded.has(Number(s.seat));
+    html += `<div class="exclude-chip ${isExcluded?'excluded':''}" onclick="toggleBulkExclude(${s.seat})">
+      <div class="seat">${s.seat}</div>
+      <div class="name">${s.name}</div>
+    </div>`;
+  });
+  html += `</div>
+  <div class="bulk-confirm-row">
+    <button class="cancel-btn" onclick="closeModal()">取消</button>
+    <button class="apply-btn" onclick="confirmBulkAdd()">套用（${includedCount} 人）</button>
+  </div>`;
+
+  document.getElementById("modalBody").innerHTML = html;
 }
 
 function openStudent(seat, name){
@@ -709,6 +859,7 @@ function openStudent(seat, name){
 function closeModal(){
   document.getElementById("modalBackdrop").classList.remove("open");
   modalStudent = null;
+  bulkModal = null;
 }
 
 function renderModal(){
