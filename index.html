@@ -589,6 +589,17 @@ function eraName(level){
 
 const DAILY_BASELINE = 0;
 const PARTICIPATION_CATEGORY = "主動發言";
+// Categories added on the frontend in case the backend's category sheet
+// doesn't have them yet. Inserted after the last positive category.
+const EXTRA_CATEGORIES = [{name:"幫助同學", points:1}];
+// Class-wide "good order" bonus comes in three tiers; individual students
+// still get the category's default points.
+const ORDER_CATEGORY = "秩序良好";
+const ORDER_TIERS = [
+  {stars:"★", points:1},
+  {stars:"★★", points:2},
+  {stars:"★★★", points:3},
+];
 let STATE = null;
 let currentClass = CLASSES[0];
 let sortMode = "seat"; // or "score"
@@ -599,12 +610,25 @@ async function loadState(){
   try{
     const res = await fetch(API_URL + "?action=state");
     STATE = await res.json();
+    mergeExtraCategories();
     render();
   }catch(err){
     document.getElementById("content").innerHTML =
       '<div class="empty">⚠️ 無法連線到後端，請檢查網路後重新整理。</div>';
     console.error(err);
   }
+}
+
+function mergeExtraCategories(){
+  const cats = STATE.categories = STATE.categories || [];
+  EXTRA_CATEGORIES.forEach(extra => {
+    if(cats.some(c => c.name === extra.name)) return;
+    let idx = cats.length;
+    for(let i = cats.length - 1; i >= 0; i--){
+      if(cats[i].points > 0){ idx = i + 1; break; }
+    }
+    cats.splice(idx, 0, {...extra});
+  });
 }
 
 function dateKeyTaipei(d){
@@ -710,6 +734,14 @@ function render(){
   html += `<div class="section-title">✨ 全班加減分</div>
   <div class="bonus-row">`;
   categories.forEach(cat => {
+    if(cat.name === ORDER_CATEGORY){
+      ORDER_TIERS.forEach(tier => {
+        html += `<button class="bonus-btn good" onclick="openBulkModal('${escapeAttr(cat.name)}', ${tier.points})">
+          ${cat.name} ${tier.stars} +${tier.points}
+        </button>`;
+      });
+      return;
+    }
     const good = cat.points > 0;
     html += `<button class="bonus-btn ${good?'good':'bad'}" onclick="openBulkModal('${escapeAttr(cat.name)}', ${cat.points})">
       ${cat.name} ${good?'+':''}${cat.points}
