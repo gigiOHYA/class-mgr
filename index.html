@@ -1052,17 +1052,6 @@ function renderModal(){
 }
 
 function doIndividual(seat, name, category, points){
-  if(category === PARTICIPATION_CATEGORY){
-    const today = todayStr();
-    const already = (STATE.records || []).some(r =>
-      r.className === currentClass && Number(r.seat) === Number(seat) &&
-      r.category === PARTICIPATION_CATEGORY && dateKeyTaipei(r.time) === today
-    );
-    if(already){
-      showToast(`🙋 ${name} 今天已經加過「${PARTICIPATION_CATEGORY}」了`);
-      return;
-    }
-  }
   bumpStudentScore(currentClass, seat, points);
   pushOptimisticRecord(currentClass, seat, name, category, points);
   bumpClassTotal(currentClass, points);
